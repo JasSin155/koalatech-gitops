@@ -1,0 +1,80 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: student-service
+  namespace: production
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: student-service
+  template:
+    metadata:
+      labels:
+        app: student-service
+        azure.workload.identity/use: "true"
+    spec:
+      serviceAccountName: koalatech-sa
+      containers:
+        - name: student-service
+          image: koalatech-student-service
+          ports:
+            - containerPort: 8000
+          # The app code reads its settings from environment variables, and
+          # I did not want to change application code for this feature. The
+          # wrapper reads each secret from the Key Vault mount into the
+          # environment of the uvicorn process only, then execs uvicorn.
+          # No Kubernetes Secret object is involved at any point.
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              export POSTGRES_USER="$(cat /mnt/secrets-store/postgres-user)"
+              export POSTGRES_PASSWORD="$(cat /mnt/secrets-store/postgres-password)"
+              export JWT_SECRET_KEY="$(cat /mnt/secrets-store/jwt-secret-key)"
+              export AZURE_STORAGE_CONNECTION_STRING="$(cat /mnt/secrets-store/storage-connection-string)"
+              exec uvicorn app.main:app --host 0.0.0.0 --port 8000
+          env:
+            - name: POSTGRES_DB
+              value: "students"
+            - name: POSTGRES_HOST
+              value: "student-db"
+            - name: POSTGRES_PORT
+              value: "5432"
+            - name: JWT_ALGORITHM
+              value: "HS256"
+            - name: AZURE_STORAGE_CONTAINER_NAME
+              value: "student-profile-photos"
+          readinessProbe:
+            tcpSocket:
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+          volumeMounts:
+            - name: secrets-store
+              mountPath: /mnt/secrets-store
+              readOnly: true
+      volumes:
+        - name: secrets-store
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: koalatech-keyvault
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: student-service
+  namespace: production
+spec:
+  selector:
+    app: student-service
+  ports:
+    - port: 8000
+      targetPort: 8000

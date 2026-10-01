@@ -1,0 +1,43 @@
+# Argo CD renders this folder with kustomize.
+#
+# The images block is the ONLY thing CI ever changes in this repository:
+# after an image passes the Docker Scout gate and is pushed to ACR, the
+# update-gitops job runs `kustomize edit set image` and commits the new tag.
+# Argo CD notices the commit and rolls it out. CI has no cluster access.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: production
+resources:
+  - 00-namespace.yaml
+  - 01-serviceaccount.yaml
+  - 02-secret-provider-class.yaml
+  - 10-user-db.yaml
+  - 11-student-db.yaml
+  - 12-lecturer-db.yaml
+  - 13-course-db.yaml
+  - 14-enrollment-db.yaml
+  - 20-user-service.yaml
+  - 21-student-service.yaml
+  - 22-lecturer-service.yaml
+  - 23-course-service.yaml
+  - 24-enrollment-service.yaml
+  - 30-frontend.yaml
+images:
+  - name: koalatech-frontend
+    newName: jas220acrhd.azurecr.io/koalatech-frontend
+    newTag: bootstrap
+  - name: koalatech-user-service
+    newName: jas220acrhd.azurecr.io/koalatech-user-service
+    newTag: bootstrap
+  - name: koalatech-student-service
+    newName: jas220acrhd.azurecr.io/koalatech-student-service
+    newTag: bootstrap
+  - name: koalatech-lecturer-service
+    newName: jas220acrhd.azurecr.io/koalatech-lecturer-service
+    newTag: bootstrap
+  - name: koalatech-course-service
+    newName: jas220acrhd.azurecr.io/koalatech-course-service
+    newTag: bootstrap
+  - name: koalatech-enrollment-service
+    newName: jas220acrhd.azurecr.io/koalatech-enrollment-service
+    newTag: bootstrap

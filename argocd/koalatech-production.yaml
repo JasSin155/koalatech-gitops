@@ -1,0 +1,30 @@
+# Argo CD Application: applied ONCE by scripts/bootstrap-argocd.sh.
+# From then on Argo CD pulls this repository and reconciles the cluster to it.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: koalatech-production
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/JasSin155/koalatech-gitops.git
+    targetRevision: main
+    path: manifests
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: production
+  syncPolicy:
+    automated:
+      prune: true     # a manifest deleted from Git is deleted from the cluster
+      selfHeal: true  # a manual kubectl change is reverted to match Git
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 3m
